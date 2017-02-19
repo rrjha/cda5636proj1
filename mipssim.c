@@ -5,12 +5,15 @@
 #include <stdbool.h>
 
 /***************************************************************************************/
-/*                                  Constants                                          */
+/*                                  Constants and macros                               */
 /***************************************************************************************/
 
-
 #define MAX_INM_ENTRY 16
-
+#ifdef DEBUG
+#define DPRINTF printf
+#else
+#define DPRINTF(fmt, ...) ((void)0)
+#endif
 /***************************************************************************************/
 /*                                  Data Structures                                    */
 /***************************************************************************************/
@@ -128,7 +131,7 @@ void initialize_dam(const char *damfile) {
             line[strlen(line)-1] = '\0';
         if (line[strlen(line)-1] == '\r')
             line[strlen(line)-1] = '\0';
-        printf("read line %s\n", line);
+        DPRINTF("read line %s\n", line);
         parse_input_to_dam(line);
     }
 
@@ -182,7 +185,7 @@ void initialize_rgf(const char *regfile) {
             line[strlen(line)-1] = '\0';
         if (line[strlen(line)-1] == '\r')
             line[strlen(line)-1] = '\0';
-        printf("read line %s\n", line);
+        DPRINTF("read line %s\n", line);
         parse_input_to_rgf(line);
     }
 
@@ -232,12 +235,12 @@ void parse_input_to_inm(INM *inm, const char *instr_str){
         else if(!strcmp(token, OPSTR[ELD]))
             t_instr.op = ELD;
         else {
-            printf("Parsing error - unsupported instruction\n");
+            DPRINTF("Parsing error - unsupported instruction\n");
             goto exit_parse;
         }
     }
     else {
-        printf("Parsing error - empty operation string\n");
+        DPRINTF("Parsing error - empty operation string\n");
         goto exit_parse;
     }
 
@@ -248,7 +251,7 @@ void parse_input_to_inm(INM *inm, const char *instr_str){
         token++;
         t_instr.rd = atoi(token);
         if((t_instr.rd < 0) || (t_instr.rd > 8)) {
-            printf("Parsing error - invalid destination register\n");
+            DPRINTF("Parsing error - invalid destination register\n");
             goto exit_parse;
         }
     }
@@ -260,7 +263,7 @@ void parse_input_to_inm(INM *inm, const char *instr_str){
         token++;
         t_instr.rs = atoi(token);
         if((t_instr.rs < 0) || (t_instr.rs > 8)) {
-            printf("Parsing error - invalid source-1 register\n");
+            DPRINTF("Parsing error - invalid source-1 register\n");
             goto exit_parse;
         }
     }
@@ -272,7 +275,7 @@ void parse_input_to_inm(INM *inm, const char *instr_str){
         token++;
         t_instr.rt = atoi(token);
         if((t_instr.rt < 0) || (t_instr.rt > 8)) {
-            printf("Parsing error - invalid source-2 register\n");
+            DPRINTF("Parsing error - invalid source-2 register\n");
             goto exit_parse;
         }
     }
@@ -281,7 +284,7 @@ void parse_input_to_inm(INM *inm, const char *instr_str){
 
     // Now append this instruction to queue
     enqueue_instr(&t_instr, inm);
-    printf("Appended <%s,%d,%d,%d> to queue at %d\n", OPSTR[inm->instr[inm->rear].op], inm->instr[inm->rear].rd, inm->instr[inm->rear].rs, inm->instr[inm->rear].rt, inm->rear);
+    DPRINTF("Appended <%s,%d,%d,%d> to queue at %d\n", OPSTR[inm->instr[inm->rear].op], inm->instr[inm->rear].rd, inm->instr[inm->rear].rs, inm->instr[inm->rear].rt, inm->rear);
 
 exit_parse:
     free(copy);
@@ -301,7 +304,7 @@ void populate_inm(const char *instr_file, INM *inm) {
             line[strlen(line)-1] = '\0';
         if (line[strlen(line)-1] == '\r')
             line[strlen(line)-1] = '\0';
-        printf("read line %s\n", line);
+        DPRINTF("read line %s\n", line);
         parse_input_to_inm(inm, line);
     }
 
@@ -378,7 +381,7 @@ void alu(instr_pipe *aib, res_buf *reb) {
             break;
 
             default:
-                printf("ALU error - Unsupported operation");
+                DPRINTF("ALU error - Unsupported operation");
         }
         reb->r_entry[1].val = val;
         reb->r_entry[1].rd = aib->rd;
@@ -461,7 +464,6 @@ void dump_all_ds(FILE *fout, int *step, INM *inm, instr_pipe *inb,
     fprintf(fout, "\n");
     dump_rgf(fout);
     dump_dam(fout);
-    fprintf(fout, "\n");
 }
 
 int main() {
@@ -503,7 +505,8 @@ int main() {
     dump_all_ds(fout, &step, &inm, &inb, &aib, &lib, &adb, &reb);
     /******************************************************************************************/
 
-    while(!is_empty_inm(&inm) || !is_empty_reb(&reb)) {
+    while(!is_empty_inm(&inm) || !is_empty_reb(&reb)
+            || inb.valid || aib.valid || lib.valid || adb.valid) {
         write_rgf(&reb);
         load(&adb, &reb);
         alu(&aib, &reb);
@@ -513,6 +516,7 @@ int main() {
         decode_instr(&inm, &inb);
 
         /************************ Dump the data structures at this step ***********************/
+        fprintf(fout, "\n");
         dump_all_ds(fout, &step, &inm, &inb, &aib, &lib, &adb, &reb);
         /**************************************************************************************/
     }
