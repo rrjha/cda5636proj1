@@ -84,15 +84,15 @@ int dam[8];
 /*                                  Function definitions                               */
 /***************************************************************************************/
 
-void dump_dam(){
+void dump_dam(FILE *fout){
     int i = 0;
 
-    printf("DAM:");
-    printf("<%d,%d>", i, dam[i]);
+    fprintf(fout, "DAM:");
+    fprintf(fout, "<%d,%d>", i, dam[i]);
     i++;
     for(; i < 8; i++)
-        printf(",<%d,%d>", i, dam[i]);
-    printf("\n");
+        fprintf(fout, ",<%d,%d>", i, dam[i]);
+    fprintf(fout, "\n");
 }
 
 void parse_input_to_dam(const char *mem_str) {
@@ -118,6 +118,10 @@ void initialize_dam(const char *damfile) {
 	FILE *fin = fopen (damfile, "r");
 	char line[30];
 
+    if (NULL == fin) {
+        perror("Program encountered error exiting..\n");
+        exit(1);
+    }
     while (fgets(line, sizeof(line), fin)) {
         //remove the trailing \n
         if (line[strlen(line)-1] == '\n')
@@ -131,15 +135,15 @@ void initialize_dam(const char *damfile) {
     fclose(fin);
 }
 
-void dump_rgf(){
+void dump_rgf(FILE *fout){
     int i = 0;
 
-    printf("RGF:");
-    printf("<R%d,%d>", i, rgf[i].value);
+    fprintf(fout, "RGF:");
+    fprintf(fout, "<R%d,%d>", i, rgf[i].value);
     i++;
     for(; i < 8; i++)
-        printf(",<R%d,%d>", i, rgf[i].value);
-    printf("\n");
+        fprintf(fout, ",<R%d,%d>", i, rgf[i].value);
+    fprintf(fout, "\n");
 }
 
 void parse_input_to_rgf(const char *reg_str) {
@@ -166,6 +170,11 @@ void parse_input_to_rgf(const char *reg_str) {
 void initialize_rgf(const char *regfile) {
 	FILE *fin = fopen (regfile, "r");
 	char line[30];
+
+    if (NULL == fin) {
+        perror("Program encountered error exiting..\n");
+        exit(1);
+    }
 
     while (fgets(line, sizeof(line), fin)) {
         //remove the trailing \n
@@ -282,7 +291,11 @@ void populate_inm(const char *instr_file, INM *inm) {
 	FILE *fin = fopen (instr_file, "r");
 	char line[30];
 
-    while (fgets(line, sizeof(line), fin)) {
+     if (NULL == fin) {
+        perror("Program encountered error exiting..\n");
+        exit(1);
+    }
+   while (fgets(line, sizeof(line), fin)) {
         //remove the trailing \n
         if (line[strlen(line)-1] == '\n')
             line[strlen(line)-1] = '\0';
@@ -295,19 +308,21 @@ void populate_inm(const char *instr_file, INM *inm) {
     fclose(fin);
 }
 
-void display_inm(const INM *inm) {
-    int i = inm->front;
-    printf("INM:");
-    printf("<%s,%d,%d,%d>", OPSTR[inm->instr[i].op], inm->instr[i].rd, inm->instr[i].rs, inm->instr[i].rt);
-    i++;
-    for (; i <= inm->rear; i++) {
-        printf(",<%s,%d,%d,%d>", OPSTR[inm->instr[i].op], inm->instr[i].rd, inm->instr[i].rs, inm->instr[i].rt);
-    }
-    printf("\n");
+bool is_empty_inm(const INM *inm) {
+    return (inm->front > inm->rear);
 }
 
-bool is_empty_inm(INM *inm) {
-    return (inm->front > inm->rear);
+void display_inm(FILE *fout, const INM *inm) {
+    int i = inm->front;
+    fprintf(fout, "INM:");
+    if(!is_empty_inm(inm)){
+        fprintf(fout, "<%s,R%d,R%d,R%d>", OPSTR[inm->instr[i].op], inm->instr[i].rd, inm->instr[i].rs, inm->instr[i].rt);
+        i++;
+        for (; i <= inm->rear; i++) {
+            fprintf(fout, ",<%s,R%d,R%d,R%d>", OPSTR[inm->instr[i].op], inm->instr[i].rd, inm->instr[i].rs, inm->instr[i].rt);
+        }
+    }
+    fprintf(fout, "\n");
 }
 
 void decode_instr(INM *inm, instr_pipe *inb) {
@@ -399,27 +414,54 @@ void write_rgf(res_buf *reb) {
     if(reb->r_entry[0].valid) {
         rgf[reb->r_entry[0].rd].value = reb->r_entry[0].val;
         rgf[reb->r_entry[0].rd].busy = false;
-        //reb->r_entry[0].valid = false;
+        reb->r_entry[0].valid = false;
     }
-    if(reb->r_entry[1].valid) {
+    else if(reb->r_entry[1].valid) {
         rgf[reb->r_entry[1].rd].value = reb->r_entry[1].val;
         rgf[reb->r_entry[1].rd].busy = false;
-        //reb->r_entry[1].valid = false;
+        reb->r_entry[1].valid = false;
     }
     // Free up space
-    memset(reb, 0, sizeof(res_buf));
+    //memset(reb, 0, sizeof(res_buf));
 }
 
-void display_intd_pipe(instr_pipe *ds, const char *str) {
-    printf("%s:", str);
+void display_intd_pipe(FILE *fout, instr_pipe *ds, const char *str) {
+    fprintf(fout, "%s:", str);
     if(ds->valid) {
-        printf("<%s,R%d,%d,%d>", OPSTR[ds->op], ds->rd, ds->src1_val, ds->src2_val);
+        fprintf(fout, "<%s,R%d,%d,%d>", OPSTR[ds->op], ds->rd, ds->src1_val, ds->src2_val);
     }
-    printf("\n");
+    fprintf(fout, "\n");
 }
 
-bool is_empty_reb(res_buf *reb){
+bool is_empty_reb(const res_buf *reb){
     return (!reb->r_entry[0].valid && !reb->r_entry[1].valid);
+}
+
+void dump_all_ds(FILE *fout, int *step, INM *inm, instr_pipe *inb,
+                    instr_pipe *aib, instr_pipe *lib,
+                    addr_buf *adb, res_buf *reb) {
+    fprintf(fout, "STEP %d:\n", (*step)++);
+    display_inm(fout, inm);
+    display_intd_pipe(fout, inb, "INB");
+    display_intd_pipe(fout, aib, "AIB");
+    display_intd_pipe(fout, lib, "LIB");
+    fprintf(fout, "ADB:");
+    if(adb->valid)
+        fprintf(fout, "<R%d,%d>", adb->rd, adb->addr);
+    fprintf(fout, "\n");
+
+    fprintf(fout, "REB:");
+    if(reb->r_entry[0].valid)
+        fprintf(fout, "<R%d,%d>", reb->r_entry[0].rd, reb->r_entry[0].val);
+    if(reb->r_entry[1].valid) {
+        if(reb->r_entry[0].valid)
+            fprintf(fout, ",");
+        fprintf(fout, "<R%d,%d>", reb->r_entry[1].rd, reb->r_entry[1].val);
+    }
+    fprintf(fout, "\n");
+    dump_rgf(fout);
+    dump_dam(fout);
+    fprintf(fout, "\n");
 }
 
 int main() {
@@ -428,6 +470,7 @@ int main() {
 	addr_buf adb;
 	res_buf reb;
 	int step=0;
+	FILE *fout = NULL;
 
 	memset(&inm, 0, sizeof(inm));
 	memset(&inb, 0, sizeof(inb));
@@ -448,28 +491,16 @@ int main() {
     initialize_dam("datamemory.txt");
     //dump_dam();
 
-    /******************************* Dump initial data structures *****************************/
-    printf("STEP %d:\n", step++);
-    display_inm(&inm);
-    display_intd_pipe(&inb, "INB");
-    display_intd_pipe(&aib, "AIB");
-    display_intd_pipe(&lib, "LIB");
-    printf("ADB:");
-    if(adb.valid)
-        printf("<R%d,%d>", adb.rd, adb.addr);
-    printf("\n");
+	fout = fopen ("simulation.txt", "w+");
 
-    printf("REB:");
-    if(reb.r_entry[0].valid)
-        printf("<R%d,%d>", reb.r_entry[0].rd, reb.r_entry[0].val);
-    if(reb.r_entry[1].valid) {
-        if(reb.r_entry[0].valid)
-            printf(",");
-        printf("<R%d,%d>", reb.r_entry[1].rd, reb.r_entry[1].val);
+     if (NULL == fout) {
+        perror("Program encountered error exiting..\n");
+        exit(1);
     }
-    printf("\n");
-    dump_rgf();
-    dump_dam();
+
+
+    /******************************* Dump initial data structures *****************************/
+    dump_all_ds(fout, &step, &inm, &inb, &aib, &lib, &adb, &reb);
     /******************************************************************************************/
 
     while(!is_empty_inm(&inm) || !is_empty_reb(&reb)) {
@@ -482,53 +513,15 @@ int main() {
         decode_instr(&inm, &inb);
 
         /************************ Dump the data structures at this step ***********************/
-        printf("STEP %d:\n", step++);
-        display_inm(&inm);
-        display_intd_pipe(&inb, "INB");
-        display_intd_pipe(&aib, "AIB");
-        display_intd_pipe(&lib, "LIB");
-        printf("ADB:");
-        if(adb.valid)
-            printf("<R%d,%d>", adb.rd, adb.addr);
-        printf("\n");
-
-        printf("REB:");
-        if(reb.r_entry[0].valid)
-            printf("<R%d,%d>", reb.r_entry[0].rd, reb.r_entry[0].val);
-        if(reb.r_entry[1].valid) {
-            if(reb.r_entry[0].valid)
-                printf(",");
-            printf("<R%d,%d>", reb.r_entry[1].rd, reb.r_entry[1].val);
-        }
-        printf("\n");
-        dump_rgf();
-        dump_dam();
+        dump_all_ds(fout, &step, &inm, &inb, &aib, &lib, &adb, &reb);
         /**************************************************************************************/
     }
 
     /******************************* Dump final data structures *****************************/
-    printf("STEP %d:\n", step++);
-    display_inm(&inm);
-    display_intd_pipe(&inb, "INB");
-    display_intd_pipe(&aib, "AIB");
-    display_intd_pipe(&lib, "LIB");
-    printf("ADB:");
-    if(adb.valid)
-        printf("<R%d,%d>", adb.rd, adb.addr);
-    printf("\n");
+    //dump_all_ds(fout, &step, &inm, &inb, &aib, &lib, &adb, &reb);
+    /****************************************************************************************/
 
-    printf("REB:");
-    if(reb.r_entry[0].valid)
-        printf("<R%d,%d>", reb.r_entry[0].rd, reb.r_entry[0].val);
-    if(reb.r_entry[1].valid) {
-        if(reb.r_entry[0].valid)
-            printf(",");
-        printf("<R%d,%d>", reb.r_entry[1].rd, reb.r_entry[1].val);
-    }
-    printf("\n");
-    dump_rgf();
-    dump_dam();
-    /******************************************************************************************/
+    fclose(fout);
 
     return 0;
 }
