@@ -41,7 +41,7 @@ typedef struct instr_mem_entry {
     int rd;
     int rs;
     int rt;
-    char instr_str[30]; //only 15 required
+    //char instr_str[30]; //only 15 required
 } inm_entry;
 
 typedef struct instr_mem {
@@ -56,7 +56,7 @@ typedef struct intermediate_instr_pipe {
     int rd;
     int src1_val;
     int src2_val;
-    char instr_str[30]; //only 15 required
+    //char instr_str[30]; //only 15 required
 } instr_pipe;
 
 typedef struct address_buffer {
@@ -88,8 +88,10 @@ void dump_dam(){
     int i = 0;
 
     printf("DAM:");
-    for(i=0; i < 8; i++)
-        printf("<%d,%d>,", i, dam[i]);
+    printf("<%d,%d>", i, dam[i]);
+    i++;
+    for(; i < 8; i++)
+        printf(",<%d,%d>", i, dam[i]);
     printf("\n");
 }
 
@@ -133,8 +135,10 @@ void dump_rgf(){
     int i = 0;
 
     printf("RGF:");
-    for(i=0; i < 8; i++)
-        printf("<R%d,%d>,", i, rgf[i].value);
+    printf("<R%d,%d>", i, rgf[i].value);
+    i++;
+    for(; i < 8; i++)
+        printf(",<R%d,%d>", i, rgf[i].value);
     printf("\n");
 }
 
@@ -264,11 +268,11 @@ void parse_input_to_inm(INM *inm, const char *instr_str){
         }
     }
 
-    strcpy(t_instr.instr_str, instr_str);
+    //strcpy(t_instr.instr_str, instr_str);
 
     // Now append this instruction to queue
     enqueue_instr(&t_instr, inm);
-    printf("Appended %s to queue at %d\n", inm->instr[inm->rear].instr_str, inm->rear);
+    printf("Appended <%s,%d,%d,%d> to queue at %d\n", OPSTR[inm->instr[inm->rear].op], inm->instr[inm->rear].rd, inm->instr[inm->rear].rs, inm->instr[inm->rear].rt, inm->rear);
 
 exit_parse:
     free(copy);
@@ -292,22 +296,24 @@ void populate_inm(const char *instr_file, INM *inm) {
 }
 
 void display_inm(const INM *inm) {
-    int i = 0;
+    int i = inm->front;
     printf("INM:");
-    for (i = inm->front; i <= inm->rear; i++) {
-        printf("%s,", inm->instr[i].instr_str);
+    printf("<%s,%d,%d,%d>", OPSTR[inm->instr[i].op], inm->instr[i].rd, inm->instr[i].rs, inm->instr[i].rt);
+    i++;
+    for (; i <= inm->rear; i++) {
+        printf(",<%s,%d,%d,%d>", OPSTR[inm->instr[i].op], inm->instr[i].rd, inm->instr[i].rs, inm->instr[i].rt);
     }
     printf("\n");
 }
 
-bool is_empty(INM *inm) {
+bool is_empty_inm(INM *inm) {
     return (inm->front > inm->rear);
 }
 
 void decode_instr(INM *inm, instr_pipe *inb) {
  	inm_entry *top = NULL;
    //Check src regs availability for topmost instruction
-    if(!(is_empty(inm)) && !(rgf[inm->instr[inm->front].rs].busy) &&
+    if(!(is_empty_inm(inm)) && !(rgf[inm->instr[inm->front].rs].busy) &&
         !(rgf[inm->instr[inm->front].rt].busy)){
         rgf[inm->instr[inm->front].rd].busy = true;
         top = dequeue_instr(inm);
@@ -316,7 +322,7 @@ void decode_instr(INM *inm, instr_pipe *inb) {
         inb->src1_val = rgf[top->rs].value;
         inb->src2_val = rgf[top->rt].value;
         inb->valid = true;
-        sprintf(inb->instr_str, "<%s,R%d,%d,%d>", OPSTR[inb->op], inb->rd, inb->src1_val, inb->src2_val);
+        //sprintf(inb->instr_str, "<%s,R%d,%d,%d>", OPSTR[inb->op], inb->rd, inb->src1_val, inb->src2_val);
     }
 }
 
@@ -404,11 +410,24 @@ void write_rgf(res_buf *reb) {
     memset(reb, 0, sizeof(res_buf));
 }
 
+void display_intd_pipe(instr_pipe *ds, const char *str) {
+    printf("%s:", str);
+    if(ds->valid) {
+        printf("<%s,R%d,%d,%d>", OPSTR[ds->op], ds->rd, ds->src1_val, ds->src2_val);
+    }
+    printf("\n");
+}
+
+bool is_empty_reb(res_buf *reb){
+    return (!reb->r_entry[0].valid && !reb->r_entry[1].valid);
+}
+
 int main() {
 	INM inm;
 	instr_pipe inb, lib, aib;
 	addr_buf adb;
 	res_buf reb;
+	int step=0;
 
 	memset(&inm, 0, sizeof(inm));
 	memset(&inb, 0, sizeof(inb));
@@ -419,21 +438,97 @@ int main() {
 	inm.rear = -1;
 	inm.front = 0;
 
+	// Load instructions to instruction memory
     populate_inm("instructions.txt", &inm);
-    display_inm(&inm);
+    //display_inm(&inm);
 
     initialize_rgf("registers.txt");
-    dump_rgf();
+    //dump_rgf();
 
     initialize_dam("datamemory.txt");
-    dump_dam();
+    //dump_dam();
 
-    while(!is_empty(&inm)) {
+    /******************************* Dump initial data structures *****************************/
+    printf("STEP %d:\n", step++);
+    display_inm(&inm);
+    display_intd_pipe(&inb, "INB");
+    display_intd_pipe(&aib, "AIB");
+    display_intd_pipe(&lib, "LIB");
+    printf("ADB:");
+    if(adb.valid)
+        printf("<R%d,%d>", adb.rd, adb.addr);
+    printf("\n");
+
+    printf("REB:");
+    if(reb.r_entry[0].valid)
+        printf("<R%d,%d>", reb.r_entry[0].rd, reb.r_entry[0].val);
+    if(reb.r_entry[1].valid) {
+        if(reb.r_entry[0].valid)
+            printf(",");
+        printf("<R%d,%d>", reb.r_entry[1].rd, reb.r_entry[1].val);
+    }
+    printf("\n");
+    dump_rgf();
+    dump_dam();
+    /******************************************************************************************/
+
+    while(!is_empty_inm(&inm) || !is_empty_reb(&reb)) {
         write_rgf(&reb);
         load(&adb, &reb);
         alu(&aib, &reb);
         addr_calc(&lib, &adb);
+        issue2(&inb, &lib);
+        issue1(&inb, &aib);
+        decode_instr(&inm, &inb);
+
+        /************************ Dump the data structures at this step ***********************/
+        printf("STEP %d:\n", step++);
+        display_inm(&inm);
+        display_intd_pipe(&inb, "INB");
+        display_intd_pipe(&aib, "AIB");
+        display_intd_pipe(&lib, "LIB");
+        printf("ADB:");
+        if(adb.valid)
+            printf("<R%d,%d>", adb.rd, adb.addr);
+        printf("\n");
+
+        printf("REB:");
+        if(reb.r_entry[0].valid)
+            printf("<R%d,%d>", reb.r_entry[0].rd, reb.r_entry[0].val);
+        if(reb.r_entry[1].valid) {
+            if(reb.r_entry[0].valid)
+                printf(",");
+            printf("<R%d,%d>", reb.r_entry[1].rd, reb.r_entry[1].val);
+        }
+        printf("\n");
+        dump_rgf();
+        dump_dam();
+        /**************************************************************************************/
     }
+
+    /******************************* Dump final data structures *****************************/
+    printf("STEP %d:\n", step++);
+    display_inm(&inm);
+    display_intd_pipe(&inb, "INB");
+    display_intd_pipe(&aib, "AIB");
+    display_intd_pipe(&lib, "LIB");
+    printf("ADB:");
+    if(adb.valid)
+        printf("<R%d,%d>", adb.rd, adb.addr);
+    printf("\n");
+
+    printf("REB:");
+    if(reb.r_entry[0].valid)
+        printf("<R%d,%d>", reb.r_entry[0].rd, reb.r_entry[0].val);
+    if(reb.r_entry[1].valid) {
+        if(reb.r_entry[0].valid)
+            printf(",");
+        printf("<R%d,%d>", reb.r_entry[1].rd, reb.r_entry[1].val);
+    }
+    printf("\n");
+    dump_rgf();
+    dump_dam();
+    /******************************************************************************************/
 
     return 0;
 }
