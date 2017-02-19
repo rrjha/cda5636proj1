@@ -1,3 +1,4 @@
+/* On my honor, I have neither given nor received unauthorized aid on this assignment */
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
