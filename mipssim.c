@@ -60,16 +60,17 @@ typedef struct intermediate_instr_pipe {
 } instr_pipe;
 
 typedef struct address_buffer {
+    bool valid;
     int rd;
     int addr;
 } addr_buf;
 
 typedef struct result_buffer {
     struct res_entry{
+        bool valid;
         int rd;
         int val;
     }r_entry[2];
-    bool ld_waiting;
 } res_buf;
 
 /***************************************************************************************/
@@ -358,20 +359,49 @@ void alu(instr_pipe *aib, res_buf *reb) {
             default:
                 printf("ALU error - Unsupported operation");
         }
-        if(reb->ld_waiting)
-            reb->res_entry[1] = val;
-        else
-            reb->res_entry[0] = val;
+        reb->r_entry[1].val = val;
+        reb->r_entry[1].rd = aib->rd;
+        reb->r_entry[1].valid = true;
 
         // Free up space
-        memset(inb, 0, sizeof(instr_pipe));
+        memset(aib, 0, sizeof(instr_pipe));
     }
 }
 
 void addr_calc(instr_pipe *lib, addr_buf *abuf) {
+    if(lib->valid)
+    {
+        abuf->rd = lib->rd;
+        abuf->addr = lib->src1_val + lib->src2_val;
+        abuf->valid = true;
+    }
+    // Free up space
+    memset(lib, 0, sizeof(instr_pipe));
 }
 
 void load(addr_buf *abuf, res_buf *reb){
+    if(abuf->valid) {
+        reb->r_entry[0].val = dam[abuf->addr];
+        reb->r_entry[0].rd = abuf->rd;
+        reb->r_entry[0].valid = true;
+    }
+    // Free up space
+    memset(abuf, 0, sizeof(addr_buf));
+}
+
+void write_rgf(res_buf *reb) {
+    if(reb->r_entry[0].valid) {
+        rgf[reb->r_entry[0].rd].value = reb->r_entry[0].val;
+        rgf[reb->r_entry[0].rd].busy = false;
+        //reb->r_entry[0].valid = false;
+    }
+    if(reb->r_entry[1].valid) {
+        rgf[reb->r_entry[1].rd].value = reb->r_entry[1].val;
+        rgf[reb->r_entry[1].rd].busy = false;
+        //reb->r_entry[1].valid = false;
+    }
+    // Free up space
+    memset(reb, 0, sizeof(res_buf));
 }
 
 int main() {
@@ -381,6 +411,11 @@ int main() {
 	res_buf reb;
 
 	memset(&inm, 0, sizeof(inm));
+	memset(&inb, 0, sizeof(inb));
+	memset(&lib, 0, sizeof(lib));
+	memset(&aib, 0, sizeof(aib));
+	memset(&adb, 0, sizeof(adb));
+	memset(&reb, 0, sizeof(reb));
 	inm.rear = -1;
 	inm.front = 0;
 
@@ -392,6 +427,13 @@ int main() {
 
     initialize_dam("datamemory.txt");
     dump_dam();
+
+    while(!is_empty(&inm)) {
+        write_rgf(&reb);
+        load(&adb, &reb);
+        alu(&aib, &reb);
+        addr_calc(&lib, &adb);
+    }
 
     return 0;
 }
