@@ -8,6 +8,11 @@
 /*                                  Constants and macros                               */
 /***************************************************************************************/
 
+#define instructionfile "instructions.txt"
+#define initialregisterfile "registers.txt"
+#define initialmemoryfile "datamemory.txt"
+#define outputsimulation "simulation.txt"
+
 #define MAX_INM_ENTRY 16
 #ifdef DEBUG
 #define DPRINTF printf
@@ -484,16 +489,13 @@ int main() {
 	inm.front = 0;
 
 	// Load instructions to instruction memory
-    populate_inm("instructions.txt", &inm);
-    //display_inm(&inm);
+    populate_inm(instructionfile, &inm);
 
-    initialize_rgf("registers.txt");
-    //dump_rgf();
+    initialize_rgf(initialregisterfile);
 
-    initialize_dam("datamemory.txt");
-    //dump_dam();
+    initialize_dam(initialmemoryfile);
 
-	fout = fopen ("simulation.txt", "w+");
+	fout = fopen (outputsimulation, "w+");
 
      if (NULL == fout) {
         perror("Program encountered error exiting..\n");
@@ -520,10 +522,6 @@ int main() {
         dump_all_ds(fout, &step, &inm, &inb, &aib, &lib, &adb, &reb);
         /**************************************************************************************/
     }
-
-    /******************************* Dump final data structures *****************************/
-    //dump_all_ds(fout, &step, &inm, &inb, &aib, &lib, &adb, &reb);
-    /****************************************************************************************/
 
     fclose(fout);
 
