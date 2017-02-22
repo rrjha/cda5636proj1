@@ -50,7 +50,6 @@ typedef struct instr_mem_entry {
     int rd;
     int rs;
     int rt;
-    //char instr_str[30]; //only 15 required
 } inm_entry;
 
 typedef struct instr_mem {
@@ -65,7 +64,6 @@ typedef struct intermediate_instr_pipe {
     int rd;
     int src1_val;
     int src2_val;
-    //char instr_str[30]; //only 15 required
 } instr_pipe;
 
 typedef struct address_buffer {
@@ -135,6 +133,7 @@ void initialize_dam(const char *damfile) {
         //remove the trailing \n
         if (line[strlen(line)-1] == '\n')
             line[strlen(line)-1] = '\0';
+        //And remove the trailing \r for dos format input files
         if (line[strlen(line)-1] == '\r')
             line[strlen(line)-1] = '\0';
         DPRINTF("read line %s\n", line);
@@ -189,6 +188,7 @@ void initialize_rgf(const char *regfile) {
         //remove the trailing \n
         if (line[strlen(line)-1] == '\n')
             line[strlen(line)-1] = '\0';
+        //And remove the trailing \r for dos format input files
         if (line[strlen(line)-1] == '\r')
             line[strlen(line)-1] = '\0';
         DPRINTF("read line %s\n", line);
@@ -286,7 +286,6 @@ void parse_input_to_inm(INM *inm, const char *instr_str){
         }
     }
 
-    //strcpy(t_instr.instr_str, instr_str);
 
     // Now append this instruction to queue
     enqueue_instr(&t_instr, inm);
@@ -308,6 +307,7 @@ void populate_inm(const char *instr_file, INM *inm) {
         //remove the trailing \n
         if (line[strlen(line)-1] == '\n')
             line[strlen(line)-1] = '\0';
+        //And remove the trailing \r for dos format input files
         if (line[strlen(line)-1] == '\r')
             line[strlen(line)-1] = '\0';
         DPRINTF("read line %s\n", line);
@@ -346,7 +346,6 @@ void decode_instr(INM *inm, instr_pipe *inb) {
         inb->src1_val = rgf[top->rs].value;
         inb->src2_val = rgf[top->rt].value;
         inb->valid = true;
-        //sprintf(inb->instr_str, "<%s,R%d,%d,%d>", OPSTR[inb->op], inb->rd, inb->src1_val, inb->src2_val);
     }
 }
 
@@ -423,15 +422,15 @@ void write_rgf(res_buf *reb) {
     if(reb->r_entry[0].valid) {
         rgf[reb->r_entry[0].rd].value = reb->r_entry[0].val;
         rgf[reb->r_entry[0].rd].busy = false;
+		// Free up space
         reb->r_entry[0].valid = false;
     }
     else if(reb->r_entry[1].valid) {
         rgf[reb->r_entry[1].rd].value = reb->r_entry[1].val;
         rgf[reb->r_entry[1].rd].busy = false;
+		// Free up space
         reb->r_entry[1].valid = false;
     }
-    // Free up space
-    //memset(reb, 0, sizeof(res_buf));
 }
 
 void display_intd_pipe(FILE *fout, instr_pipe *ds, const char *str) {
