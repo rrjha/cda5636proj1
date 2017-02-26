@@ -15,6 +15,9 @@
 #define outputsimulation "simulation.txt"
 
 #define MAX_INM_ENTRY 16
+#define VAL_BOUNDARY 64 //Used for boundary check of Reg and Mem values
+
+//Pass -D DEBUG flag to GCC to turn on debug messages
 #ifdef DEBUG
 #define DPRINTF printf
 #else
@@ -370,19 +373,20 @@ void alu(instr_pipe *aib, res_buf *reb) {
     if(aib->valid) {
         switch(aib->op) {
             case EADD:
-                val = aib->src1_val + aib->src2_val;
+                val = (aib->src1_val + aib->src2_val)%VAL_BOUNDARY; //keep the sum within 0-63 as per problem statement
             break;
 
             case ESUB:
                 val = aib->src1_val - aib->src2_val;
+                val = (val < 0) ? (VAL_BOUNDARY + val) : val; //if result is less than 0 roll back from max permissible values
             break;
 
             case EAND:
-                val = aib->src1_val & aib->src2_val;
+                val = aib->src1_val & aib->src2_val; //if the inputs are valid this will always be within bounds so no check
             break;
 
             case EOR:
-                val = aib->src1_val | aib->src2_val;
+                val = aib->src1_val | aib->src2_val; // if the inputs are within range (assumed) then result will awlways be within boundary
             break;
 
             default:
@@ -402,7 +406,11 @@ void addr_calc(instr_pipe *lib, addr_buf *abuf) {
     {
         abuf->rd = lib->rd;
         abuf->addr = lib->src1_val + lib->src2_val;
-        abuf->valid = true;
+        //Check for valid mem location
+        if(abuf->addr < 8)
+            abuf->valid = true;
+        else
+            DPRINTF("ADDR error - Invalid memory address. Dropping the instruction and continuing\n");
     }
     // Free up space
     memset(lib, 0, sizeof(instr_pipe));
