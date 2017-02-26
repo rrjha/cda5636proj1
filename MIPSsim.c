@@ -431,7 +431,8 @@ void write_rgf(res_buf *reb) {
         rgf[reb->r_entry[0].rd].value = reb->r_entry[0].val;
         rgf[reb->r_entry[0].rd].busy = false;
 		// Free up space
-        reb->r_entry[0].valid = false;
+        reb->r_entry[0] = reb->r_entry[1];
+        reb->r_entry[1].valid = false;
     }
     else if(reb->r_entry[1].valid) {
         rgf[reb->r_entry[1].rd].value = reb->r_entry[1].val;
