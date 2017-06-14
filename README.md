@@ -16,7 +16,11 @@ Simulator is expected to generate step-by-step simulation of the Petri net model
                       
                      /                                                 \
                      
-Ii----> |Decoder|--INB-\                                                  \
+Ii----> |Decoder|--INB-
+
+                   |  |
+                      
+                   |   \                                                    \
 
                     \    \                                                   \
                     
